@@ -12,8 +12,9 @@ online_list = list()
 online_list = [-1,-1,-1,-1,-1]
 
 
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1',1061))
+sock.bind(('127.0.0.1',1062))
 sock.listen(5)
 print('Listening at', sock.getsockname())
 def server():
@@ -44,6 +45,15 @@ def login(buf,connNumber):
            return 1
     return 0
 
+
+def tellPerson(flag, whatToSay):
+    for c in mylist:
+        if c.fileno() == flag :
+            try:
+                c.send(whatToSay.encode())
+            except:
+                pass
+
 def tellOthers(exceptNum, whatToSay):
     for c in mylist:
         if c.fileno() != exceptNum :
@@ -52,24 +62,60 @@ def tellOthers(exceptNum, whatToSay):
             except:
                 pass
 
+def checkPerson(person,myconnection):
+    if mydict[myconnection.fileno()] == person :
+       msg = 'Cannot talk to yourself!'
+       myconnection.send(msg.encode())
+       print(msg)
+       return -1
+    for i in range(len(account_list)):
+        if person == account_list[i] :
+           if online_list[i] != -1 :
+              msg = 'Start to talk with '+ person +' !'
+              myconnection.send(msg.encode())
+              return online_list[i]
+           else :
+              msg = person+' is offline!'
+              myconnection.send(msg.encode())
+              print(msg)
+              return -1
+    msg = person + ' does not exist!'
+    myconnection.send(msg.encode())
+    print(msg) 
+    return -1  
+
 def subThreadIn(myconnection, connNumber):
-    #mydict[myconnection.fileno()] = 'test'
+    flag = -1
     mylist.append(myconnection)
-    tellOthers(connNumber, '【系統提示：'+mydict[connNumber]+' 進入聊天室】')
+    tellOthers(connNumber, '【系統提示：'+mydict[connNumber]+' 上線】')
     while True:
         try:
             recvedMsg = myconnection.recv(MAX_BYTES).decode()
             if recvedMsg:
                print(mydict[connNumber], ':', recvedMsg)
-               tellOthers(connNumber, mydict[connNumber]+' :'+recvedMsg)
-
+               if recvedMsg == 'friend list' and flag ==-1 :
+                  listFriend()
+               elif recvedMsg == 'talk' and flag ==-1  :
+                  myconnection.send(b'talk to who?')
+                  person = myconnection.recv(MAX_BYTES).decode()
+                  flag=checkPerson(person,myconnection)
+               elif recvedMsg == 'end talk' :
+                  flag = -1
+                  myconnection.send(b'End talk!')
+               elif recvedMsg == 'friend add' and flag ==-1  :
+                  addFriend()
+               elif recvedMsg == 'friend rm' and flag ==-1  :
+                  rmFriend()
+               else :
+                  if flag != -1 :
+                     tellPerson(flag, mydict[connNumber]+' :'+recvedMsg)
         except (OSError, ConnectionResetError):
             try:
                 mylist.remove(myconnection)
             except:
                 pass
             print(mydict[connNumber], 'exit, ', len(mylist), ' person leftgf')
-            tellOthers(connNumber, '【系統提示：'+mydict[connNumber]+' 離開聊天室】')
+            tellOthers(connNumber, '【系統提示：'+mydict[connNumber]+' 離線】')
             myconnection.close()
             return
 
