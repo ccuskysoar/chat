@@ -10,11 +10,12 @@ password_list = list()
 password_list = ['1111','1111','1111','1111','0000']
 online_list = list()
 online_list = [-1,-1,-1,-1,-1]
+friend_dict = dict()
 
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1',1062))
+sock.bind(('127.0.0.1',1061))
 sock.listen(5)
 print('Listening at', sock.getsockname())
 def server():
@@ -84,6 +85,89 @@ def checkPerson(person,myconnection):
     print(msg) 
     return -1  
 
+def listFriend(myconnection):
+    if friend_dict.get(mydict[myconnection.fileno()]) is None :
+       myconnection.send(b'you have no friend!')
+       return 0
+    myfriend = friend_dict[mydict[myconnection.fileno()]].split(' ')
+    for i in myfriend :
+        for j in range(len(account_list)) :
+            if i == account_list[j] :
+               if online_list[j] != -1 :
+                  msg = i + ' is Online!'
+                  myconnection.send(msg.encode())
+               else :
+                  msg = i + ' is Offline!'
+                  myconnection.send(msg.encode())
+
+def addFriend(person,myconnection):
+    if mydict[myconnection.fileno()] == person :
+       msg = 'Cannot add yourself!'
+       myconnection.send(msg.encode())
+       print(msg)
+       return 0 
+    if friend_dict.get(mydict[myconnection.fileno()]) is not None :
+       myfriend = friend_dict[mydict[myconnection.fileno()]].split(' ')
+       for i in myfriend :
+           if i == person :
+              msg = person + ' is already your friend!'
+              myconnection.send(msg.encode())
+              return 0
+    for i in range(len(account_list)):
+        if person == account_list[i] :
+           print(mydict[myconnection.fileno()])
+           if friend_dict.get(mydict[myconnection.fileno()]) is None :
+              friend_dict[mydict[myconnection.fileno()]] = person
+           else:
+              friend_dict[mydict[myconnection.fileno()]] = friend_dict[mydict[myconnection.fileno()]] + ' ' + person
+           if friend_dict.get(person) is None:
+              friend_dict[person] = mydict[myconnection.fileno()]
+           else :
+              friend_dict[person] = friend_dict[person] + ' '+ mydict[myconnection.fileno()]
+           msg = 'Add friend '+ person +' success!'
+           myconnection.send(msg.encode())
+           return 0
+    msg = person + ' does not exist!'
+    myconnection.send(msg.encode())
+    print(msg)
+    return 0
+
+
+def rmFriend(person,myconnection):
+    if friend_dict.get(mydict[myconnection.fileno()]) is None :
+       msg = 'you have no friend!'
+       myconnection.send(msg.encode())
+       return 0
+    if person not in account_list :
+       msg = person + ' does not exist!'
+       myconnection.send(msg.encode())
+       print(msg)
+       return 0
+    myfriend = friend_dict[mydict[myconnection.fileno()]].split(' ')
+    del friend_dict[mydict[myconnection.fileno()]]
+    for i in myfriend :
+        if i == person :
+           pass
+        else:
+           if friend_dict.get(mydict[myconnection.fileno()]) is None :
+              friend_dict[mydict[myconnection.fileno()]] = i
+           else :
+              friend_dict[mydict[myconnection.fileno()]] = friend_dict[mydict[myconnection.fileno()]] + ' ' + i
+    #yourfriend = friend_dict[person].split(' ')
+    #del friend_dict[person]
+    #for j in yourfriend :
+    #    if j == mydict[myconnection.fileno()] :
+    #       pass
+    #    else:
+    #       if friend_dict.get(person) is None :
+    #          friend_dict[person] = j
+    #       else :
+    #          friend_dict[person] = friend_dict[mydict[person] + ' ' + j
+    msg = 'Remove friend '+ person +' success!'
+    myconnection.send(msg.encode())
+    return 0
+
+
 def subThreadIn(myconnection, connNumber):
     flag = -1
     mylist.append(myconnection)
@@ -94,18 +178,22 @@ def subThreadIn(myconnection, connNumber):
             if recvedMsg:
                print(mydict[connNumber], ':', recvedMsg)
                if recvedMsg == 'friend list' and flag ==-1 :
-                  listFriend()
+                  listFriend(myconnection)
                elif recvedMsg == 'talk' and flag ==-1  :
                   myconnection.send(b'talk to who?')
                   person = myconnection.recv(MAX_BYTES).decode()
                   flag=checkPerson(person,myconnection)
-               elif recvedMsg == 'end talk' :
+               elif recvedMsg == 'end talk' and flag != -1 :
                   flag = -1
                   myconnection.send(b'End talk!')
                elif recvedMsg == 'friend add' and flag ==-1  :
-                  addFriend()
+                  myconnection.send(b'add who?')
+                  person = myconnection.recv(MAX_BYTES).decode()
+                  addFriend(person,myconnection)
                elif recvedMsg == 'friend rm' and flag ==-1  :
-                  rmFriend()
+                  myconnection.send(b'remove who?')
+                  person = myconnection.recv(MAX_BYTES).decode()
+                  rmFriend(person,myconnection)
                else :
                   if flag != -1 :
                      tellPerson(flag, mydict[connNumber]+' :'+recvedMsg)
