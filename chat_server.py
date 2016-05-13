@@ -15,7 +15,7 @@ friend_dict = dict()
 offlineMsg_dict = dict()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1',1060))
+sock.bind(('127.0.0.1',1061))
 sock.listen(5)
 print('Listening at', sock.getsockname())
 def server():
@@ -44,6 +44,8 @@ def login(buf,connNumber):
     log=buf.split('-')
     for i in range(len(account_list)) :
         if log[0] == account_list[i] and log[1] == password_list[i] :
+           if online_list[i] != -1:
+              return -1
            online_list[i] = connNumber
            mydict[connNumber] = log[0]
            return i
@@ -223,6 +225,14 @@ def subThreadIn(myconnection, connNumber):
                   myconnection.send(b'remove who?')
                   person = myconnection.recv(MAX_BYTES).decode()
                   rmFriend(person,myconnection)
+               elif recvedMsg == 'logout' and flag == -1  :
+                  mylist.remove(myconnection)
+                  print(mydict[connNumber], ' exit!')
+                  tellOthers(connNumber, '【系統提示：'+mydict[connNumber]+' 離線】')
+                  online_list[online_list.index(connNumber)] = -1
+                  mydict.pop(connNumber)
+                  myconnection.close()
+                  return
                else :
                   if flag != -1 :
                      tellPerson(flag, mydict[connNumber]+' :'+recvedMsg)
@@ -231,8 +241,10 @@ def subThreadIn(myconnection, connNumber):
                 mylist.remove(myconnection)
             except:
                 pass
-            print(mydict[connNumber], 'exit, ', len(mylist), ' person leftgf')
+            print(mydict[connNumber], ' exit!')
             tellOthers(connNumber, '【系統提示：'+mydict[connNumber]+' 離線】')
+            online_list[online_list.index(connNumber)] = -1
+            mydict.pop(connNumber)
             myconnection.close()
             return
 

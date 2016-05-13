@@ -5,10 +5,10 @@ from getpass import getpass
 MAX_BYTES = 65535
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('127.0.0.1',1060))
+sock.connect(('127.0.0.1',1061))
 
 def client():
-    account=input('請輸入帳號：')
+    account=input('login：')
     password=getpass()
     log=account+'-'+password
     sock.send(log.encode())
@@ -29,7 +29,10 @@ def sendThreadFunc():
     while True:
         try:
             myword = input()
-            sock.send(myword.encode())  
+            sock.send(myword.encode())
+            if myword == 'logout':
+               sock.close()
+               return 
         except ConnectionAbortedError:
             print('Server closed this connection!')
         except ConnectionResetError:
