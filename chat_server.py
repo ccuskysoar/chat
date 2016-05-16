@@ -1,6 +1,7 @@
 import argparse, socket
 import threading
 import time
+import string
 
 MAX_BYTES = 65535
 mydict = dict()
@@ -162,6 +163,7 @@ def addFriend(person,myconnection):
     return 0
 
 def rmFriend(person,myconnection):
+    isfriend = 0
     if friend_dict.get(mydict[myconnection.fileno()]) is None :
        msg = 'you have no friend!'
        myconnection.send(msg.encode())
@@ -175,25 +177,66 @@ def rmFriend(person,myconnection):
     del friend_dict[mydict[myconnection.fileno()]]
     for i in myfriend :
         if i == person :
-           pass
+           isfriend = 1
         else:
            if friend_dict.get(mydict[myconnection.fileno()]) is None :
               friend_dict[mydict[myconnection.fileno()]] = i
            else :
               friend_dict[mydict[myconnection.fileno()]] = friend_dict[mydict[myconnection.fileno()]] + ' ' + i
-    yourfriend = friend_dict[person].split(' ')
-    del friend_dict[person]
-    for j in yourfriend :
-       if j == mydict[myconnection.fileno()] :
-          pass
-       else:
-          if friend_dict.get(person) is None :
-             friend_dict[person] = j 
-          else :
-             friend_dict[person] = friend_dict[person] + ' ' + j 
-    msg = 'Remove friend '+ person +' success!'
-    myconnection.send(msg.encode())
-    return 0
+    if isfriend == 0:
+       return 0
+    else:
+       yourfriend = friend_dict[person].split(' ')
+       del friend_dict[person]
+       for j in yourfriend :
+          if j == mydict[myconnection.fileno()] :
+             pass
+          else:
+             if friend_dict.get(person) is None :
+                friend_dict[person] = j 
+             else :
+                friend_dict[person] = friend_dict[person] + ' ' + j 
+       msg = 'Remove friend '+ person +' success!'
+       myconnection.send(msg.encode())
+       return 0
+
+def sendFile(person,myconnection):
+    if mydict[myconnection.fileno()] == person :
+       msg = 'Cannot send file to yourself!'
+       myconnection.send(msg.encode())
+       print(msg)
+       return -1
+    elif account_list.count(person) < 1:
+       msg = person + ' does not exist!'
+       myconnection.send(msg.encode())
+       print(msg)
+       return -1
+    elif online_list[account_list.index(person)] == -1 :
+       msg = person + ' is Offline!'
+       myconnection.send(msg.encode())
+       print(msg)
+       return -1
+    else:
+       myconnection.send(b'@@@filename@@@')
+       filename = myconnection.recv(MAX_BYTES).decode()
+       if filename == '@@@error@@@':
+          return -1
+       for r in mylist:
+         if r.fileno() == online_list[account_list.index(person)]:
+              receiver = r
+              r.send(b'@@@y/n@@@')
+              time.sleep(0.05)
+              r.send(filename.encode())
+              time.sleep(0.05)
+       while True:
+           data = myconnection.recv(MAX_BYTES)
+           receiver.send(data)
+           if data == b'EOF':
+             print ('receive file success!')
+             time.sleep(0.5)
+             receiver.send(data)
+             break
+       return 1
 
 def subThreadIn(myconnection, connNumber):
     flag = -1
@@ -225,6 +268,10 @@ def subThreadIn(myconnection, connNumber):
                   myconnection.send(b'remove who?')
                   person = myconnection.recv(MAX_BYTES).decode()
                   rmFriend(person,myconnection)
+               elif recvedMsg == 'sendfile' and flag ==-1  :
+                  myconnection.send(b'send file to who?')
+                  person = myconnection.recv(MAX_BYTES).decode()
+                  sendFile(person,myconnection)
                elif recvedMsg == 'logout' and flag == -1  :
                   mylist.remove(myconnection)
                   print(mydict[connNumber], ' exit!')
